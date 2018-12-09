@@ -5,20 +5,39 @@ use std::io;
 use std::io::prelude::*;
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
+use std::env;
 
 use ssh2::Session;
 use uuid::Uuid;
 
 fn main() {
-    let config = jumpserver_config::Config {
-        ip: "10.20.34.27".parse().unwrap(),
-        port: 22,
-        username: "huajiongjiong".into(),
-        private_key: "/home/nooberfsh/.ssh/id_rsa_qiniu".parse().unwrap(),
-    };
+    //TODO: this may be configured through command line argument
+    let home_dir = dirs::home_dir().expect("fetch home dir failed");
+    let config_path = home_dir.join(".rcp");
+    let config = read_config(&config_path).unwrap();
+       
+    let args: Vec<_>= env::args().collect();
+    if args.len() != 3 {
+        println!("Usage: rcp from to");
+        return
+    }
     let conn = Connection::connect(&config).unwrap();
-    // conn.send("123.txt", "xs5:~/huajiongjiong/rcp/").unwrap();
-    conn.recv(".", "xs5:~/huajiongjiong/server.sh").unwrap();
+    if is_remote_addr(&args[1]) {
+        conn.recv(&args[2], &args[1]).unwrap();
+    } else if is_remote_addr(&args[2]) {
+        conn.send(&args[1], &args[2]).unwrap();
+    } else {
+        println!("can not a remote addr")
+    }
+}
+
+fn read_config<P: AsRef<Path>>(p: P) -> Result<jumpserver_config::Config, Error> {
+    let mut f = File::open(p)?;
+    let mut s = String::new();
+    f.read_to_string(&mut s)?;
+    toml::from_str(&s).map_err(|e| {
+        Error::InvalidConfig(format!("{:?}", e))
+    })
 }
 
 #[derive(Debug)]
@@ -27,6 +46,7 @@ enum Error {
     Ssh(ssh2::Error),
     Cmd(String),
     InvalidRemoteAddr,
+    InvalidConfig(String),
 }
 
 impl From<io::Error> for Error {
@@ -93,6 +113,7 @@ impl Connection {
 
         let (mut remote_file, _) = self.sess.scp_recv(&remote)?;
         io::copy(&mut remote_file, &mut local_file)?;
+        println!("copy to local success")
         Ok(())
     }
 
@@ -157,6 +178,11 @@ fn extract_file_name(remote: &str) -> Option<String> {
     let p: &Path = addr[1].as_ref();
     let ret = p.file_name()?.to_string_lossy().into_owned();
     Some(ret)
+}
+
+//TODO: is it correct?
+fn is_remote_addr(addr: &str) -> bool {
+    addr.contains(":")
 }
 
 struct Clean<'a>(&'a Connection, String);

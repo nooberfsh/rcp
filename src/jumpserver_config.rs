@@ -1,6 +1,8 @@
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
+use serde_derive::Deserialize;
 
+#[derive(Debug, Deserialize)]
 pub struct Config {
     pub ip: IpAddr,
     pub port: u16,
