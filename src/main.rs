@@ -113,7 +113,7 @@ impl Connection {
 
         let (mut remote_file, _) = self.sess.scp_recv(&remote)?;
         io::copy(&mut remote_file, &mut local_file)?;
-        println!("copy to local success")
+        println!("copy to local success");
         Ok(())
     }
 
