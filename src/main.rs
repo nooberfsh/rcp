@@ -89,7 +89,7 @@ impl Connection {
         let dir = self.create_dir()?;
         let _clean = Clean(self, dir.clone());
 
-        let cmd = format!("qscp {} {}", remote, dir);
+        let cmd = format!("fscp {} {}", remote, dir);
         self.exec(&cmd)?;
 
         let name = match extract_file_name(remote) {
@@ -135,7 +135,7 @@ impl Connection {
         drop(remote_file);
         println!("copy file to jumpserver success");
 
-        let cmd = format!("qscp {} {}", filename.to_str().unwrap(), remote);
+        let cmd = format!("fscp {} {}", filename.to_str().unwrap(), remote);
         let code = self.exec(&cmd)?;
         if code != 0 {
             let err = format!("exec {} failed", cmd);
