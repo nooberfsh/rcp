@@ -63,14 +63,12 @@ impl From<ssh2::Error> for Error {
 
 struct Connection {
     sess: Session,
-    _socket: TcpStream,
 }
 
 impl Connection {
-    fn new(sess: Session, socket: TcpStream) -> Self {
+    fn new(sess: Session) -> Self {
         Connection {
             sess: sess,
-            _socket: socket,
         }
     }
 
@@ -78,11 +76,12 @@ impl Connection {
     fn connect(config: &jumpserver_config::Config) -> Result<Self, Error> {
         let tcp = TcpStream::connect(config.addr()).expect("can not connect to the jumpserver");
         let mut sess = Session::new().expect("initialize a session failed");
-        sess.handshake(&tcp)?;
+        sess.set_tcp_stream(tcp);
+        sess.handshake()?;
 
         sess.userauth_pubkey_file(&config.username, None, &config.private_key, None)?;
         assert!(sess.authenticated());
-        Ok(Connection::new(sess, tcp))
+        Ok(Connection::new(sess))
     }
 
     fn recv<P: AsRef<Path>>(&self, local: P, remote: &str) -> Result<(), Error> {
