@@ -10,5 +10,5 @@ ssh2 = { version = "0.6", features = ["vendored-openssl"]}
 serde = "1.0"
 serde_derive = "1.0"
 uuid = { version = "0.7", features = ["serde", "v4"] }
-dirs = "1.0"
+dirs = "2.0"
 toml = "0.4"

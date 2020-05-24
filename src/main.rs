@@ -1,11 +1,11 @@
 mod config;
 
+use std::env;
 use std::fs::{self, File};
 use std::io;
 use std::io::prelude::*;
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
-use std::env;
 
 use ssh2::Session;
 use uuid::Uuid;
@@ -15,17 +15,18 @@ fn main() {
     let home_dir = dirs::home_dir().expect("fetch home dir failed");
     let config_path = home_dir.join(".rcp");
     let config = read_config(&config_path).unwrap();
-       
-    let args: Vec<_>= env::args().collect();
+    let scp = config.scp();
+
+    let args: Vec<_> = env::args().collect();
     if args.len() != 3 {
         println!("Usage: rcp from to");
-        return
+        return;
     }
     let conn = Connection::connect(&config).unwrap();
     if is_remote_addr(&args[1]) {
-        conn.recv(&args[2], &args[1]).unwrap();
+        conn.recv(&args[2], &args[1], scp).unwrap();
     } else if is_remote_addr(&args[2]) {
-        conn.send(&args[1], &args[2]).unwrap();
+        conn.send(&args[1], &args[2], scp).unwrap();
     } else {
         println!("can not a remote addr")
     }
@@ -35,9 +36,7 @@ fn read_config<P: AsRef<Path>>(p: P) -> Result<config::Config, Error> {
     let mut f = File::open(p)?;
     let mut s = String::new();
     f.read_to_string(&mut s)?;
-    toml::from_str(&s).map_err(|e| {
-        Error::InvalidConfig(format!("{:?}", e))
-    })
+    toml::from_str(&s).map_err(|e| Error::InvalidConfig(format!("{:?}", e)))
 }
 
 #[derive(Debug)]
@@ -67,9 +66,7 @@ struct Connection {
 
 impl Connection {
     fn new(sess: Session) -> Self {
-        Connection {
-            sess: sess,
-        }
+        Connection { sess }
     }
 
     // Connect to the local SSH server
@@ -79,16 +76,16 @@ impl Connection {
         sess.set_tcp_stream(tcp);
         sess.handshake()?;
 
-        sess.userauth_pubkey_file(&config.username, None, &config.private_key, None)?;
+        sess.userauth_pubkey_file(&config.username, None, &config.private_key_path(), None)?;
         assert!(sess.authenticated());
         Ok(Connection::new(sess))
     }
 
-    fn recv<P: AsRef<Path>>(&self, local: P, remote: &str) -> Result<(), Error> {
+    fn recv<P: AsRef<Path>>(&self, local: P, remote: &str, scp: &str) -> Result<(), Error> {
         let dir = self.create_dir()?;
         let _clean = Clean(self, dir.clone());
 
-        let cmd = format!("fscp {} {}", remote, dir);
+        let cmd = format!("{} {} {}", scp, remote, dir);
         self.exec(&cmd)?;
 
         let name = match extract_file_name(remote) {
@@ -116,7 +113,7 @@ impl Connection {
         Ok(())
     }
 
-    fn send<P: AsRef<Path>>(&self, local: P, remote: &str) -> Result<(), Error> {
+    fn send<P: AsRef<Path>>(&self, local: P, remote: &str, scp: &str) -> Result<(), Error> {
         let dir = self.create_dir()?;
         let _clean = Clean(self, dir.clone());
 
@@ -134,7 +131,7 @@ impl Connection {
         drop(remote_file);
         println!("copy file to jumpserver success");
 
-        let cmd = format!("fscp {} {}", filename.to_str().unwrap(), remote);
+        let cmd = format!("{} {} {}", scp, filename.to_str().unwrap(), remote);
         let code = self.exec(&cmd)?;
         if code != 0 {
             let err = format!("exec {} failed", cmd);
