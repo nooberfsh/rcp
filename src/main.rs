@@ -7,6 +7,7 @@ use std::io::prelude::*;
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 
+use anyhow::{anyhow, Result};
 use ssh2::Session;
 use uuid::Uuid;
 
@@ -32,32 +33,12 @@ fn main() {
     }
 }
 
-fn read_config<P: AsRef<Path>>(p: P) -> Result<config::Config, Error> {
+fn read_config<P: AsRef<Path>>(p: P) -> Result<config::Config> {
     let mut f = File::open(p)?;
     let mut s = String::new();
     f.read_to_string(&mut s)?;
-    toml::from_str(&s).map_err(|e| Error::InvalidConfig(format!("{:?}", e)))
-}
-
-#[derive(Debug)]
-enum Error {
-    Io(io::Error),
-    Ssh(ssh2::Error),
-    Cmd(String),
-    InvalidRemoteAddr,
-    InvalidConfig(String),
-}
-
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Self {
-        Error::Io(e)
-    }
-}
-
-impl From<ssh2::Error> for Error {
-    fn from(e: ssh2::Error) -> Self {
-        Error::Ssh(e)
-    }
+    let config = toml::from_str(&s)?;
+    Ok(config)
 }
 
 struct Connection {
@@ -70,7 +51,7 @@ impl Connection {
     }
 
     // Connect to the local SSH server
-    fn connect(config: &config::Config) -> Result<Self, Error> {
+    fn connect(config: &config::Config) -> Result<Self> {
         let tcp = TcpStream::connect(config.addr()).expect("can not connect to the jumpserver");
         let mut sess = Session::new().expect("initialize a session failed");
         sess.set_tcp_stream(tcp);
@@ -81,7 +62,7 @@ impl Connection {
         Ok(Connection::new(sess))
     }
 
-    fn recv<P: AsRef<Path>>(&self, local: P, remote: &str, scp: &str) -> Result<(), Error> {
+    fn recv<P: AsRef<Path>>(&self, local: P, remote: &str, scp: &str) -> Result<()> {
         let dir = self.create_dir()?;
         let _clean = Clean(self, dir.clone());
 
@@ -90,7 +71,7 @@ impl Connection {
 
         let name = match extract_file_name(remote) {
             Some(f) => f,
-            None => return Err(Error::InvalidRemoteAddr),
+            None => return Err(anyhow!("invalid remote address: {}", remote)),
         };
 
         let p = local.as_ref();
@@ -113,7 +94,7 @@ impl Connection {
         Ok(())
     }
 
-    fn send<P: AsRef<Path>>(&self, local: P, remote: &str, scp: &str) -> Result<(), Error> {
+    fn send<P: AsRef<Path>>(&self, local: P, remote: &str, scp: &str) -> Result<()> {
         let dir = self.create_dir()?;
         let _clean = Clean(self, dir.clone());
 
@@ -129,31 +110,30 @@ impl Connection {
         let mut f = File::open(p)?;
         io::copy(&mut f, &mut remote_file)?;
         drop(remote_file);
-        println!("copy file to jumpserver success");
+        println!("copy file to jump server success");
 
         let cmd = format!("{} {} {}", scp, filename.to_str().unwrap(), remote);
         let code = self.exec(&cmd)?;
         if code != 0 {
-            let err = format!("exec {} failed", cmd);
-            return Err(Error::Cmd(err));
+            Err(anyhow!("exec {} failed", cmd))
+        } else {
+            Ok(())
         }
-
-        Ok(())
     }
 
-    fn create_dir(&self) -> Result<String, Error> {
+    fn create_dir(&self) -> Result<String> {
         //create a tmp directory
         let uuid = Uuid::new_v4();
         let mkdir = format!("mkdir {}", uuid);
         let code = self.exec(&mkdir)?;
         if code != 0 {
-            let err = format!("create dir {} failed", uuid);
-            return Err(Error::Cmd(err));
+            Err(anyhow!("create dir {} failed", uuid))
+        } else {
+            Ok(format!("{}", uuid))
         }
-        Ok(format!("{}", uuid))
     }
 
-    fn exec(&self, cmd: &str) -> Result<i32, Error> {
+    fn exec(&self, cmd: &str) -> Result<i32> {
         let mut channel = self.sess.channel_session()?;
         channel.exec(&cmd)?;
 
