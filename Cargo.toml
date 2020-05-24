@@ -5,10 +5,8 @@ authors = ["nooberfsh <nooberfsh@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-tokio = "0.1"
-ssh2 = { version = "0.6", features = ["vendored-openssl"]}
-serde = "1.0"
-serde_derive = "1.0"
-uuid = { version = "0.7", features = ["serde", "v4"] }
+ssh2 = { version = "0.8", features = ["vendored-openssl"]}
+serde = {version = "1.0", features = ["derive"]}
+uuid = { version = "0.8", features = ["serde", "v4"] }
 dirs = "2.0"
-toml = "0.4"
+toml = "0.5"
