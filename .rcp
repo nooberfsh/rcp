@@ -1,6 +1,0 @@
-#jumpserver config
-ip = ""
-port = ""
-username = ""
-#TODO: now this must use absolute path
-private_key = ""
