@@ -11,6 +11,12 @@ rcp path/to/local/file remote_addr:path
 rcp remote_addr:path/to/remote/file local/path
 ```
 
+## Install
+
+```
+cargo install rcp
+```
+
 ## Config
 在 `$HOME` 目录建立 `.rcp` 配置文件, 配置项：
 - ip: 跳板机 ip， 必填。
