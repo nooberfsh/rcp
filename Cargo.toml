@@ -3,6 +3,12 @@ name = "rcp"
 version = "0.1.0"
 authors = ["nooberfsh <nooberfsh@gmail.com>"]
 edition = "2018"
+license = "MIT"
+repository = "https://github.com/nooberfsh/rcp"
+homepage = "https://github.com/nooberfsh/rcp"
+documentation = "https://docs.rs/rcp"
+keywords = ["scp", "tool", "cli"]
+readme = "README.md"
 
 [dependencies]
 ssh2 = { version = "0.8", features = ["vendored-openssl"]}
