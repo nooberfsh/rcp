@@ -1,4 +1,4 @@
-mod jumpserver_config;
+mod config;
 
 use std::fs::{self, File};
 use std::io;
@@ -31,7 +31,7 @@ fn main() {
     }
 }
 
-fn read_config<P: AsRef<Path>>(p: P) -> Result<jumpserver_config::Config, Error> {
+fn read_config<P: AsRef<Path>>(p: P) -> Result<config::Config, Error> {
     let mut f = File::open(p)?;
     let mut s = String::new();
     f.read_to_string(&mut s)?;
@@ -73,7 +73,7 @@ impl Connection {
     }
 
     // Connect to the local SSH server
-    fn connect(config: &jumpserver_config::Config) -> Result<Self, Error> {
+    fn connect(config: &config::Config) -> Result<Self, Error> {
         let tcp = TcpStream::connect(config.addr()).expect("can not connect to the jumpserver");
         let mut sess = Session::new().expect("initialize a session failed");
         sess.set_tcp_stream(tcp);
